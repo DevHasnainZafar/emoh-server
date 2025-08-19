@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { AppService } from './app.service';
 import {
   ApiOperation,
@@ -26,5 +26,9 @@ export class AppController {
   async getCategories(@Req() req) {
     const userId = req.user?.userId;
     return this.appService.getCategories(userId);
+  }
+  @Get('favicon.ico')
+  handleFavicon() {
+    return { statusCode: 204 };
   }
 }

@@ -30,7 +30,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
   imports: [
     ConfigModule.forRoot(),
     AuthModule,
-   ThrottlerModule.forRoot({
+    ThrottlerModule.forRoot({
       throttlers: [
         {
           ttl: 60000,
@@ -55,16 +55,23 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     CommonModule,
   ],
   controllers: [AppController, HealthController],
-  providers: [AppService,{
-    provide:APP_GUARD,
-    useClass:ThrottlerGuard
-  }],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TokenMiddleware)
-      .exclude({ path: 'health', method: RequestMethod.GET })
+      .exclude(
+        { path: 'health', method: RequestMethod.GET },
+        { path: 'favicon.ico', method: RequestMethod.GET },
+        { path: '', method: RequestMethod.GET },
+      )
       .forRoutes('*');
   }
 }

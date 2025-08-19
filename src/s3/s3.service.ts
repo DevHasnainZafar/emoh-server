@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { S3 } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3 } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import { uploadFileToS3 } from './s3.utils';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class S3Service {
@@ -21,11 +22,20 @@ export class S3Service {
               secretAccessKey,
             },
           }
-        : {}),
+        : undefined),
     });
   }
   async uploadFile(file: Express.Multer.File): Promise<string> {
     const bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME');
     return uploadFileToS3(this.s3, file, bucketName as string);
+  }
+  async getSignedUrl(fileKey: string): Promise<string> {
+    const bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME');
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: fileKey,
+    });
+    const signedUrl = await getSignedUrl(this.s3, command, { expiresIn: 3600 });
+    return signedUrl;
   }
 }

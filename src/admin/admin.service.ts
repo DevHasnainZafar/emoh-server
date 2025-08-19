@@ -45,11 +45,15 @@ export class AdminService {
       });
       const payload = { email: admin.email, sub: admin.adminId };
       const accessToken = this.jwtService.sign(payload);
+      const signedProfilePicUrl = profilePicUrl
+        ? await this.s3Service.getSignedUrl(profilePicUrl)
+        : null;
       return {
         adminId: admin.adminId,
         email: admin.email,
         name: admin.name,
-        profilePic: admin.profilePic,
+        profilePic: signedProfilePicUrl,
+        dbProfilePic: profilePicUrl,
         role: admin.role,
         accessLevel: admin.accessLevel,
         accessToken,
@@ -99,11 +103,15 @@ export class AdminService {
         profilePic: admin.profilePic,
       };
       const accessToken = this.jwtService.sign(payload);
+      const signedProfilePicUrl = admin.profilePic
+        ? await this.s3Service.getSignedUrl(admin.profilePic)
+        : null;
       return {
         adminId: admin.adminId,
         email: admin.email,
         name: admin.name,
-        profilePic: admin.profilePic,
+        profilePic: signedProfilePicUrl,
+        dbProfilePic: admin.profilePic,
         role: admin.role,
         accessLevel: admin.accessLevel,
         accessToken,
@@ -116,14 +124,21 @@ export class AdminService {
       throw new InternalServerErrorException('Failed to Logged In');
     }
   }
-  async getAdminProfile(adminId: number): Promise<Admin> {
+  async getAdminProfile(adminId: number) {
     const admin = await this.prisma.admin.findUnique({
       where: { adminId },
     });
     if (!admin) {
       throw new NotFoundException('Admin not found');
     }
-    return admin;
+    const signedProfilePicUrl = admin.profilePic
+      ? await this.s3Service.getSignedUrl(admin.profilePic)
+      : null;
+    return {
+      ...admin,
+      dbProfilePic: admin.profilePic,
+      profilePic: signedProfilePicUrl,
+    };
   }
   async updateProfile(
     adminId: number,
@@ -155,14 +170,24 @@ export class AdminService {
         updateFields++;
       }
       let profilePicUrl = admin.profilePic;
+      if (profilePicUrl && profilePicUrl.includes('amazonaws.com')) {
+        const url = new URL(profilePicUrl);
+        profilePicUrl = url.pathname.substring(1);
+      }
+
       if (file) {
         profilePicUrl = await this.s3Service.uploadFile(file);
         updateFields++;
       }
-      if (updateDto.role || updateDto.accessLevel || updateDto.name || updateDto.email) {
+      if (
+        updateDto.role ||
+        updateDto.accessLevel ||
+        updateDto.name ||
+        updateDto.email
+      ) {
         updateFields++;
       }
-  
+
       const updateData: any = {
         ...(profilePicUrl && { profilePic: profilePicUrl }),
         ...(updateDto.role && { role: updateDto.role }),
@@ -184,34 +209,43 @@ export class AdminService {
           updatedAt: true,
         },
       });
+      const signedProfilePicUrl = updatedAdmin.profilePic
+        ? await this.s3Service.getSignedUrl(updatedAdmin.profilePic)
+        : null;
+
+      const responseData = {
+        ...updatedAdmin,
+        dbProfilePic: updatedAdmin.profilePic,
+        profilePic: signedProfilePicUrl,
+      };
       if (updateFields === 1) {
         if (updateDto.newPassword) {
           return {
             message: 'Password updated successfully',
-            data: updatedAdmin,
+            data: responseData,
           };
         } else if (file) {
           return {
             message: 'Profile image updated successfully',
-            data: updatedAdmin,
+            data: responseData,
           };
         } else if (updateDto.name) {
-          return { message: 'Name updated successfully', data: updatedAdmin };
+          return { message: 'Name updated successfully', data: responseData };
         } else if (updateDto.email) {
-          return { message: 'Email updated successfully', data: updatedAdmin };
+          return { message: 'Email updated successfully', data: responseData };
         } else if (updateData.role) {
-          return { message: 'Role updated successfully', data: updatedAdmin };
+          return { message: 'Role updated successfully', data: responseData };
         } else if (updateData.accessLevel) {
           return {
             message: 'Access Level updated successfully',
-            data: updatedAdmin,
+            data: responseData,
           };
         }
       } else if (updateFields > 1) {
-        return { message: 'Profile updated successfully', data: updatedAdmin };
+        return { message: 'Profile updated successfully', data: responseData };
       }
-  
-      return { message: 'No changes made', data: updatedAdmin };
+
+      return { message: 'No changes made', data: responseData };
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
@@ -249,18 +283,25 @@ export class AdminService {
         throw new NotFoundException(`No Users Found`);
       }
 
-      const formattedUsers = users.map((user) => ({
-        userId: user.userId,
-        fullName: `${user.firstName} ${user.lastName || ''}`,
-        email: user.email,
-        defaultCurrencyName: user.defaultCurrencyName,
-        defaultCurrencyCode: user.defaultCurrencyCode,
-        defaultLanguage: user.defaultLanguage,
-        profilePic: user.profilePic,
-        isBlocked: user.isBlocked,
-        isDeleted: user.isDeleted,
-      }));
-
+      const formattedUsers = await Promise.all(
+        users.map(async (user) => {
+          const signedProfilePicUrl = user.profilePic
+            ? await this.s3Service.getSignedUrl(user.profilePic)
+            : null;
+          return {
+            userId: user.userId,
+            fullName: `${user.firstName} ${user.lastName || ''}`,
+            email: user.email,
+            defaultCurrencyName: user.defaultCurrencyName,
+            defaultCurrencyCode: user.defaultCurrencyCode,
+            defaultLanguage: user.defaultLanguage,
+            profilePic: signedProfilePicUrl,
+            dbProfilePic: user.profilePic,
+            isBlocked: user.isBlocked,
+            isDeleted: user.isDeleted,
+          };
+        }),
+      );
       return formattedUsers;
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -279,6 +320,9 @@ export class AdminService {
       if (!user) {
         throw new NotFoundException('User not found');
       }
+      const signedProfilePicUrl = user.profilePic
+        ? await this.s3Service.getSignedUrl(user.profilePic)
+        : null;
       const formattedUser = {
         userId: user.userId,
         fullName: `${user.firstName} ${user.lastName || ''}`,
@@ -286,11 +330,11 @@ export class AdminService {
         defaultCurrencyName: user.defaultCurrencyName,
         defaultCurrencyCode: user.defaultCurrencyCode,
         defaultLanguage: user.defaultLanguage,
-        profilePic: user.profilePic,
+        profilePic: signedProfilePicUrl,
+        dbProfilePic: user.profilePic,
         isBlocked: user.isBlocked,
         isDeleted: user.isDeleted,
       };
-
       return formattedUser;
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -377,164 +421,164 @@ export class AdminService {
     return updatedUser;
   }
   async getUserCounts(
-  timePeriod?:
-    | 'today'
-    | 'weekly'
-    | 'monthly'
-    | 'yearly'
-    | '2years'
-    | '3years'
-    | '4years'
-    | 'custom',
-  customStartDate?: string,
-): Promise<UserCountResult> {
-  const parsedCustomStartDate = customStartDate
-    ? new Date(customStartDate)
-    : undefined;
+    timePeriod?:
+      | 'today'
+      | 'weekly'
+      | 'monthly'
+      | 'yearly'
+      | '2years'
+      | '3years'
+      | '4years'
+      | 'custom',
+    customStartDate?: string,
+  ): Promise<UserCountResult> {
+    const parsedCustomStartDate = customStartDate
+      ? new Date(customStartDate)
+      : undefined;
 
-  if (parsedCustomStartDate) {
-    timePeriod = 'custom';
-  }
-  const currentWhereClause = { isDeleted: false };
-
-  const [totalUsers, blockedUsers] = await Promise.all([
-    this.prisma.user.count({ where: currentWhereClause }),
-    this.prisma.user.count({
-      where: {
-        ...currentWhereClause,
-        isBlocked: true,
-      },
-    }),
-  ]);
-
-  const activeUsers = totalUsers - blockedUsers;
-
-  let comparisonData: ComparisonData | null = null;
-  let changes: {
-    total: ChangeData;
-    active: ChangeData;
-    blocked: ChangeData;
-  } | null = null;
-
-  if (timePeriod) {
-    const startDate = getStartDateByTimePeriod(
-      timePeriod,
-      parsedCustomStartDate,
-    );
-
-    if (!startDate) {
-      throw new BadRequestException('Invalid time period or custom date');
+    if (parsedCustomStartDate) {
+      timePeriod = 'custom';
     }
-    const comparisonStartDate = this.getComparisonStartDate(
-      startDate,
-      timePeriod,
-    );
+    const currentWhereClause = { isDeleted: false };
 
-    const currentFilteredWhere = {
-      isDeleted: false,
-      createdAt: { gte: startDate },
-    };
+    const [totalUsers, blockedUsers] = await Promise.all([
+      this.prisma.user.count({ where: currentWhereClause }),
+      this.prisma.user.count({
+        where: {
+          ...currentWhereClause,
+          isBlocked: true,
+        },
+      }),
+    ]);
 
-    const comparisonWhereClause = {
-      isDeleted: false,
-      createdAt: { gte: comparisonStartDate, lt: startDate },
-    };
+    const activeUsers = totalUsers - blockedUsers;
 
-    const [periodTotal, periodBlocked, prevTotal, prevBlocked] =
-      await Promise.all([
-        this.prisma.user.count({ where: currentFilteredWhere }),
-        this.prisma.user.count({
-          where: {
-            ...currentFilteredWhere,
-            isBlocked: true,
-          },
-        }),
-        this.prisma.user.count({ where: comparisonWhereClause }),
-        this.prisma.user.count({
-          where: {
-            ...comparisonWhereClause,
-            isBlocked: true,
-          },
-        }),
-      ]);
+    let comparisonData: ComparisonData | null = null;
+    let changes: {
+      total: ChangeData;
+      active: ChangeData;
+      blocked: ChangeData;
+    } | null = null;
 
-    const periodActive = periodTotal - periodBlocked;
-    const prevActive = prevTotal - prevBlocked;
+    if (timePeriod) {
+      const startDate = getStartDateByTimePeriod(
+        timePeriod,
+        parsedCustomStartDate,
+      );
 
-    comparisonData = {
-      totalUsers: prevTotal,
-      activeUsers: prevActive,
-      blockedUsers: prevBlocked,
-      startDate: comparisonStartDate,
-      endDate: startDate,
-    };
+      if (!startDate) {
+        throw new BadRequestException('Invalid time period or custom date');
+      }
+      const comparisonStartDate = this.getComparisonStartDate(
+        startDate,
+        timePeriod,
+      );
 
-    changes = this.calculateChanges(
-      periodTotal,
-      periodActive,
-      periodBlocked,
-      prevTotal,
-      prevActive,
-      prevBlocked,
-    );
+      const currentFilteredWhere = {
+        isDeleted: false,
+        createdAt: { gte: startDate },
+      };
 
+      const comparisonWhereClause = {
+        isDeleted: false,
+        createdAt: { gte: comparisonStartDate, lt: startDate },
+      };
+
+      const [periodTotal, periodBlocked, prevTotal, prevBlocked] =
+        await Promise.all([
+          this.prisma.user.count({ where: currentFilteredWhere }),
+          this.prisma.user.count({
+            where: {
+              ...currentFilteredWhere,
+              isBlocked: true,
+            },
+          }),
+          this.prisma.user.count({ where: comparisonWhereClause }),
+          this.prisma.user.count({
+            where: {
+              ...comparisonWhereClause,
+              isBlocked: true,
+            },
+          }),
+        ]);
+
+      const periodActive = periodTotal - periodBlocked;
+      const prevActive = prevTotal - prevBlocked;
+
+      comparisonData = {
+        totalUsers: prevTotal,
+        activeUsers: prevActive,
+        blockedUsers: prevBlocked,
+        startDate: comparisonStartDate,
+        endDate: startDate,
+      };
+
+      changes = this.calculateChanges(
+        periodTotal,
+        periodActive,
+        periodBlocked,
+        prevTotal,
+        prevActive,
+        prevBlocked,
+      );
+
+      return {
+        current: {
+          totalUsers,
+          activeUsers,
+          blockedUsers,
+          timePeriod,
+          startDate,
+        },
+        comparison: comparisonData,
+        changes,
+      };
+    }
     return {
       current: {
         totalUsers,
         activeUsers,
         blockedUsers,
-        timePeriod,
-        startDate,
+        timePeriod: 'all',
+        startDate: null,
       },
-      comparison: comparisonData,
-      changes,
+      comparison: null,
+      changes: null,
     };
   }
-  return {
-    current: {
-      totalUsers,
-      activeUsers,
-      blockedUsers,
-      timePeriod: 'all',
-      startDate: null,
-    },
-    comparison: null,
-    changes: null,
-  };
-}
-private getComparisonStartDate(
-  currentStartDate: Date,
-  timePeriod: string,
-): Date {
-  const date = new Date(currentStartDate);
-  switch (timePeriod) {
-    case 'today':
-      date.setDate(date.getDate() - 1);
-      break;
-    case 'weekly':
-      date.setDate(date.getDate() - 7);
-      break;
-    case 'monthly':
-      date.setMonth(date.getMonth() - 1);
-      break;
-    case 'yearly':
-      date.setFullYear(date.getFullYear() - 1);
-      break;
-    case '2years':
-      date.setFullYear(date.getFullYear() - 2);
-      break;
-    case '3years':
-      date.setFullYear(date.getFullYear() - 3);
-      break;
-    case '4years':
-      date.setFullYear(date.getFullYear() - 4);
-      break;
-    default:
-      const diff = Date.now() - currentStartDate.getTime();
-      return new Date(currentStartDate.getTime() - diff);
+  private getComparisonStartDate(
+    currentStartDate: Date,
+    timePeriod: string,
+  ): Date {
+    const date = new Date(currentStartDate);
+    switch (timePeriod) {
+      case 'today':
+        date.setDate(date.getDate() - 1);
+        break;
+      case 'weekly':
+        date.setDate(date.getDate() - 7);
+        break;
+      case 'monthly':
+        date.setMonth(date.getMonth() - 1);
+        break;
+      case 'yearly':
+        date.setFullYear(date.getFullYear() - 1);
+        break;
+      case '2years':
+        date.setFullYear(date.getFullYear() - 2);
+        break;
+      case '3years':
+        date.setFullYear(date.getFullYear() - 3);
+        break;
+      case '4years':
+        date.setFullYear(date.getFullYear() - 4);
+        break;
+      default:
+        const diff = Date.now() - currentStartDate.getTime();
+        return new Date(currentStartDate.getTime() - diff);
+    }
+    return date;
   }
-  return date;
-}
 
   private calculateChanges(
     currentTotal: number,

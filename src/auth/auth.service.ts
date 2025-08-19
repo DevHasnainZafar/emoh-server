@@ -32,35 +32,39 @@ export class AuthService {
       const existingUser = await this.prisma.user.findUnique({
         where: { email: lowerCaseEmail },
       });
-      if(existingUser?.isBlocked){
-          throw new BadRequestException('Your account is blocked. Please contact support.');
+      if (existingUser?.isBlocked) {
+        throw new BadRequestException(
+          'Your account is blocked. Please contact support.',
+        );
       }
-       if (existingUser?.isDeleted) {
-      throw new BadRequestException('Your account has been deleted. Please contact support.');
-    }
-     if (existingUser?.password) {
-      throw new BadRequestException('User already registered');
-    }
+      if (existingUser?.isDeleted) {
+        throw new BadRequestException(
+          'Your account has been deleted. Please contact support.',
+        );
+      }
+      if (existingUser?.password) {
+        throw new BadRequestException('User already registered');
+      }
       const generatedOtp = generateOtp();
       const regOTPExpiry = new Date(Date.now() + 10 * 60 * 1000);
-       if (!existingUser) {
-      await this.prisma.user.create({
-        data: {
-          email: lowerCaseEmail,
-          regOtp: generatedOtp,
-          regOTPExpiry,
-        },
-      });
-    } else {
-      await this.prisma.user.update({
-        where: { email: lowerCaseEmail },
-        data: {
-          regOtp: generatedOtp,
-          regOTPExpiry,
-          regOtpVerified: false,
-        },
-      });
-    }
+      if (!existingUser) {
+        await this.prisma.user.create({
+          data: {
+            email: lowerCaseEmail,
+            regOtp: generatedOtp,
+            regOTPExpiry,
+          },
+        });
+      } else {
+        await this.prisma.user.update({
+          where: { email: lowerCaseEmail },
+          data: {
+            regOtp: generatedOtp,
+            regOTPExpiry,
+            regOtpVerified: false,
+          },
+        });
+      }
       await sendOtpEmail(email, generatedOtp);
       return { message: 'OTP send to your email' };
     } catch (error) {
@@ -134,8 +138,14 @@ export class AuthService {
         isProfileCreated: true,
       },
     });
-
-    return updatedUser;
+    const signedUrl = updatedUser.profilePic
+      ? await this.s3Service.getSignedUrl(updatedUser.profilePic)
+      : null;
+    return {
+      ...updatedUser,
+      profilePic: signedUrl,
+      dbProfilePic: updatedUser.profilePic,
+    };
   }
 
   async createProfile(
@@ -143,16 +153,24 @@ export class AuthService {
     createProfileDto: CreateProfileDto,
     file: Express.Multer.File,
   ) {
-    const profilePicUrl = file ? await this.s3Service.uploadFile(file) : null;
+    const fileKey = file ? await this.s3Service.uploadFile(file) : null;
     const userInput = {
       ...createProfileDto,
-      profilePic: profilePicUrl,
+      profilePic: fileKey,
       isProfileCreated: true,
     };
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { userId },
       data: userInput,
     });
+    const signedProfilePicUrl = updatedUser.profilePic
+      ? await this.s3Service.getSignedUrl(updatedUser.profilePic)
+      : null;
+    return {
+      ...updatedUser,
+      profilePic: signedProfilePicUrl,
+      dbProfilePic: updatedUser.profilePic,
+    };
   }
 
   async resendOTP(email: string) {
@@ -188,9 +206,7 @@ export class AuthService {
       }
 
       if (user.isDeleted) {
-        throw new BadRequestException(
-          'Your account has been deleted',
-        );
+        throw new BadRequestException('Your account has been deleted');
       }
 
       if (user.isBlocked) {
@@ -211,6 +227,9 @@ export class AuthService {
       const payload = { username: user.email, sub: user.userId };
       const accessToken = this.jwtService.sign(payload);
 
+      const signedProfilePicUrl = user.profilePic
+        ? await this.s3Service.getSignedUrl(user.profilePic)
+        : null;
       return {
         userId: user.userId,
         firstName: user.firstName,
@@ -220,7 +239,8 @@ export class AuthService {
         defaultCurrencyCode: user.defaultCurrencyCode,
         defaultLanguage: user.defaultLanguage,
         isProfileCreated: user.isProfileCreated,
-        profilePic: user.profilePic,
+        dbProfilePic: user.profilePic,
+        profilePic: signedProfilePicUrl,
         accessToken,
       };
     } catch (error) {
@@ -278,7 +298,14 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    const signedProfilePicUrl = user.profilePic
+      ? await this.s3Service.getSignedUrl(user.profilePic)
+      : null;
+    return {
+      ...user,
+      dbProfilePic: user.profilePic,
+      profilePic: signedProfilePicUrl,
+    };
   }
   async updateProfile(
     userId: number,
@@ -293,14 +320,18 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    let profilePicUrl = user.profilePic;
-    if (file) {
-      profilePicUrl = await this.s3Service.uploadFile(file);
+    let profilePicKey = user.profilePic;
+    if (profilePicKey && profilePicKey.includes('amazonaws.com')) {
+      const url = new URL(profilePicKey);
+      profilePicKey = url.pathname.substring(1);
     }
 
+    if (file) {
+      profilePicKey = await this.s3Service.uploadFile(file);
+    }
     const userInput = {
       ...updateProfileDto,
-      profilePic: profilePicUrl,
+      profilePic: profilePicKey,
     };
     const isCurrencyUpdated =
       updateProfileDto.defaultCurrencyCode &&
@@ -309,7 +340,17 @@ export class AuthService {
       where: { userId },
       data: userInput,
     });
-    if (!isCurrencyUpdated) return updatedUser;
+    if (!isCurrencyUpdated) {
+      const signedUrl = updatedUser.profilePic
+        ? await this.s3Service.getSignedUrl(updatedUser.profilePic)
+        : null;
+      return {
+        ...updatedUser,
+        profilePic: signedUrl,
+        dbProfilePic: updatedUser.profilePic,
+      };
+    }
+
     const newCurrencyCode = updateProfileDto.defaultCurrencyCode;
     if (!newCurrencyCode) {
       throw new BadRequestException('Default currency code is required');
@@ -490,8 +531,15 @@ export class AuthService {
         },
       });
     }
+    const signedUrl = updatedUser.profilePic
+      ? await this.s3Service.getSignedUrl(updatedUser.profilePic)
+      : null;
 
-    return updatedUser;
+    return {
+      ...updatedUser,
+      profilePic: signedUrl,
+      dbProfilePic: updatedUser.profilePic,
+    };
   }
 
   async forgotPassword(email: string) {
@@ -608,45 +656,46 @@ export class AuthService {
     }
   }
 
+  async requestDeleteOtp(requestDeleteOtpDto: RequestDeleteOtpDto) {
+    const { email } = requestDeleteOtpDto;
+    const lowerEmail = email.toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email: lowerEmail },
+    });
 
-  async requestDeleteOtp(requestDeleteOtpDto:RequestDeleteOtpDto) {
-    const {email} = requestDeleteOtpDto
-  const lowerEmail = email.toLowerCase();
-  const user = await this.prisma.user.findUnique({ where: { email: lowerEmail } });
+    if (!user || user.isDeleted) {
+      throw new NotFoundException('User not found or already deleted');
+    }
 
-  if (!user || user.isDeleted) {
-    throw new NotFoundException('User not found or already deleted');
+    const otp = generateOtp();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { email: lowerEmail },
+      data: {
+        regOtp: otp,
+        regOTPExpiry: expiry,
+      },
+    });
+
+    await sendDeleteOtpEmail(email, otp);
+    return { message: 'OTP sent to your email to confirm account deletion' };
   }
 
-  const otp = generateOtp();
-  const expiry = new Date(Date.now() + 10 * 60 * 1000);
-
-  await this.prisma.user.update({
-    where: { email: lowerEmail },
-    data: {
-      regOtp: otp,
-      regOTPExpiry: expiry,
-    },
-  });
-
-  await sendDeleteOtpEmail(email, otp);
-  return { message: 'OTP sent to your email to confirm account deletion' };
-}
-
-async verifyDeleteOtpAndDelete(verifyDeleteOtpDto:VerifyDeleteOtpDto) {
-  const {email,otp} = verifyDeleteOtpDto
-  const lowerEmail = email.toLowerCase();
-  const user = await this.prisma.user.findFirst({
-    where: {
-      email: lowerEmail,
-      regOtp: otp,
-      regOTPExpiry: { gte: new Date() },
-    },
-  });
-  if (!user) {
-    throw new BadRequestException('Invalid OTP or OTP expired');
+  async verifyDeleteOtpAndDelete(verifyDeleteOtpDto: VerifyDeleteOtpDto) {
+    const { email, otp } = verifyDeleteOtpDto;
+    const lowerEmail = email.toLowerCase();
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: lowerEmail,
+        regOtp: otp,
+        regOTPExpiry: { gte: new Date() },
+      },
+    });
+    if (!user) {
+      throw new BadRequestException('Invalid OTP or OTP expired');
+    }
+    await this.deleteAccount(user.userId);
+    return { message: 'Account deleted successfully' };
   }
-  await this.deleteAccount(user.userId);
-  return { message: 'Account deleted successfully' };
-}
 }

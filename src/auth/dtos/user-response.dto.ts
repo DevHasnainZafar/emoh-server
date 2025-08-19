@@ -26,6 +26,9 @@ export class UserResponseDto {
   isProfileCreated: boolean;
 
   @ApiProperty()
+  dbProfilePic: string | null;
+
+  @ApiProperty()
   profilePic: string | null;
 
   @ApiProperty()
