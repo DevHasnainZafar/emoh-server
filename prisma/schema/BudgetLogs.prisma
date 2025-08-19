@@ -1,0 +1,20 @@
+model BudgetLog {
+    logId                       Int                     @id @default(autoincrement())
+    fkBudgetId                  Int
+    budget                      Budget                  @relation("BudgetLogs", fields: [fkBudgetId], references: [budgetId])
+    fkUserId                    Int
+    user                        User                    @relation(fields: [fkUserId], references: [userId])
+    categoryName                String
+    budgetContributionCycle     BudgetContributionCycle
+    budgetAmountInGivenCurrency Float
+    budgetAmountCurrency        String
+    budgetAmountInBaseCurrency  Float
+    baseCurrency                String
+    budgetAmountInCADCurrency   Float
+    CADCurrency                 String                  @default("CAD")
+    startDate                   DateTime
+    endDate                     DateTime
+    isActive                    Boolean                 @default(true)
+    createdAt                   DateTime                @default(now())
+    updatedAt                   DateTime                @updatedAt
+}

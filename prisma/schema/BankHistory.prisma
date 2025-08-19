@@ -1,0 +1,31 @@
+model BankHistory {
+    bankHistoryId                           Int               @id @default(autoincrement())
+    bankId                                  Int
+    accountName                             String
+    accountType                             AccountType       @default(Saving)
+    isCreditAccount                         Boolean           @default(false)
+    creditAccountLiabilityInDefaultCurrency Float?            @default(0)
+    creditAccountLiabilityInCAD             Float?            @default(0)
+    accountImage                            String
+    accountAmount                           Float
+    accountCurrencyCode                     String
+    accountAmountInDefaultCurrency          Float?
+    exchangeRateForBaseCurrency             Float?
+    accountAmountInCADCurrency              Float?
+    exchangeRateForCAD                      Float?
+    isPlaidAccount                          Boolean           @default(false)
+    plaidAccountId                          String?
+    plaidItemId                             String?
+    plaidInstitutionId                      String?
+    isArchived                              Boolean
+    BankOperationType                       BankOperationType
+    createdAt                               DateTime          @default(now()) @map("created_at")
+    updatedAt                               DateTime?         @updatedAt @map("updated_at")
+    lastSyncAt                              DateTime?         @map("last_sync_at")
+
+    fkUserId Int
+    user     User @relation(fields: [fkUserId], references: [userId])
+
+    @@index([bankId])
+    @@map("BankHistory")
+}

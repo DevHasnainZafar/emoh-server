@@ -1,0 +1,8 @@
+model UserStatsSnapshot {
+    id        Int      @id @default(autoincrement())
+    date      DateTime @default(now())
+    total     Int
+    active    Int
+    blocked   Int
+    createdAt DateTime @default(now())
+}

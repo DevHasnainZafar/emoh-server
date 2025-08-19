@@ -1,0 +1,10 @@
+model NetWorthHistory {
+    netWorthHistoryId         Int      @id @default(autoincrement())
+    fkUserId                  Int
+    user                      User     @relation(fields: [fkUserId], references: [userId])
+    netWorthInCAD             Float
+    netWorthInDefaultCurrency Float
+    defaultCurrency           String
+    createdAt                 DateTime @default(now())
+    @@index([fkUserId, createdAt])
+}

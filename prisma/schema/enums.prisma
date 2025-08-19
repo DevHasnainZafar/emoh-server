@@ -1,0 +1,106 @@
+enum CategoryType {
+    INCOME
+    BUDGET
+}
+
+enum IncomeCategory {
+    Salary
+    HouseRent
+    Business
+    Dividend
+}
+
+enum BudgetCategory {
+    Groceries
+    Shopping
+    Rent
+    Utilities
+}
+
+enum RecurringType {
+    NoRecurring
+    Yearly
+    Monthly
+    Weekly
+    Biweekly
+    Custom
+}
+
+enum CustomRecurringInterval {
+    Day
+    Days
+    Week
+    Biweek
+    Month
+    Quarter
+    Year
+}
+
+enum CustomRecurringDays {
+    Monday
+    Tuesday
+    Wednesday
+    Thursday
+    Friday
+    Saturday
+    Sunday
+}
+
+enum BudgetContributionCycle {
+    Daily
+    Weekly
+    Monthly
+    Yearly
+}
+
+enum TransactionsType {
+    INCOME
+    EXPENSE
+}
+
+enum BankOperationType {
+    ADD
+    UPDATE
+    SYNC
+    DELETE
+    INCOME
+    EXPENSE
+}
+
+enum AccountType {
+    Saving
+    Chequing
+    Business
+    Investment
+    Credit
+    DEBIT
+    Loan
+    Other
+}
+
+enum InclusionStatus {
+    Included
+    Excluded
+    Out_Of_Scope
+}
+
+enum ItemType {
+    Asset
+    Liability
+}
+
+enum AdminRole {
+    ADMIN
+    SUPER_ADMIN
+}
+
+enum AccessLevel {
+    FULL
+    PARTIAL
+}
+
+enum InviteStatus {
+    ACCEPTED
+    REJECTED
+    PENDING
+}

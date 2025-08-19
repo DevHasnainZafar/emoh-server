@@ -1,0 +1,34 @@
+model Bank {
+    bankId                                  Int         @id @default(autoincrement())
+    fkUserId                                Int
+    user                                    User        @relation(fields: [fkUserId], references: [userId])
+    accountName                             String
+    accountType                             AccountType @default(Saving)
+    isCreditAccount                         Boolean     @default(false)
+    creditAccountLiabilityInDefaultCurrency Float?      @default(0)
+    creditAccountLiabilityInCAD             Float?      @default(0)
+    accountImage                            String
+    accountAmount                           Float
+    accountCurrencyCode                     String      @default("CAD")
+    accountAmountInDefaultCurrency          Float?
+    exchangeRateForBaseCurrency             Float?
+    accountAmountInCADCurrency              Float?
+    exchangeRateForCAD                      Float?
+
+    isPlaidAccount     Boolean   @default(false)
+    plaidAccountId     String?
+    plaidAccountNumber String?
+    plaidItemId        String?
+    plaidInstitutionId String?
+    isArchived         Boolean   @default(false)
+    createdAt          DateTime  @default(now()) @map("created_at")
+    updatedAt          DateTime  @updatedAt @map("updated_at")
+    lastSyncAt         DateTime? @map("last_sync_at")
+
+    transactions Transactions[]
+    incomes      Income[]
+    expenses     Expense[]
+
+    @@index([bankId])
+    @@map("Banks")
+}

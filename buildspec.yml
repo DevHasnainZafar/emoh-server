@@ -1,0 +1,25 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo DATABASE_URL=${DATABASE_URL} >> .env
+      - echo JWT_SECRET=${JWT_SECRET} >> .env
+      - echo PORT=${PORT} >> .env
+      - echo EMAIL_USERNAME=${EMAIL_USERNAME} >> .env
+      - echo EMAIL_PASSWORD=${EMAIL_PASSWORD} >> .env
+      - echo AWS_REGION=${AWS_REGION} >> .env
+      - echo AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} >> .env
+      - echo AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} >> .env
+      - echo AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME} >> .env
+  install:
+    commands:
+      - curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+      - sudo apt-get install -y nodejs
+      - node -v
+      - sudo npm install
+  build:
+    commands:
+      - npm run build
+artifacts:
+  files:
+    - '**/*'

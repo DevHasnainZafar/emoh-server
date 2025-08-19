@@ -1,0 +1,30 @@
+model Income {
+    incomeId                    Int                      @id @default(autoincrement())
+    fkUserId                    Int
+    user                        User                     @relation(fields: [fkUserId], references: [userId])
+    fkBankId                    Int
+    bank                        Bank                     @relation(fields: [fkBankId], references: [bankId])
+    receivedIn                  String
+    receivedInBankImage         String
+    receivedFrom                String
+    categoryName                String
+    incomeAmountInGivenCurrency Float
+    incomeAmountCurrency        String
+    incomeAmountInBaseCurrency  Float
+    baseCurrency                String
+    incomeAmountInCADCurrency   Float
+    CADCurrency                 String                   @default("CAD")
+    recurringType               RecurringType
+    nextDueDate                 DateTime?
+    customRecurringUnit         Int?
+    customRecurringInterval     CustomRecurringInterval?
+    customRecurringDays         CustomRecurringDays[]
+    customRecurringStartDate    DateTime?
+    customRecurringEndDate      DateTime?
+
+    incomeDate    DateTime?
+    transactions  Transactions[] @relation("IncomeTransactions")
+    isPlaidIncome Boolean        @default(false)
+    isDeleted     Boolean        @default(false)
+    updatedAt     DateTime       @default(now())
+}

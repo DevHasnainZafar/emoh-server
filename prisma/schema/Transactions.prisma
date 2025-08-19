@@ -1,0 +1,27 @@
+model Transactions {
+    transactionId               String           @id @default(uuid())
+    fkUserId                    Int
+    user                        User             @relation(fields: [fkUserId], references: [userId])
+    fkBankId                    Int?
+    bank                        Bank?            @relation(fields: [fkBankId], references: [bankId])
+    transactionType             TransactionsType
+    partyName                   String
+    categoryName                String
+    isUncategorized             Boolean          @default(false)
+    amountInGivenCurrency       Float
+    amountCurrency              String
+    amountInBaseCurrency        Float
+    BaseCurrency                String
+    amountInCADCurrency         Float
+    CADCurrency                 String           @default("CAD")
+    exchangeRateForBaseCurrency Float?
+    exchangeRateForCAD          Float?
+    fkIncomeId                  Int?
+    income                      Income?          @relation("IncomeTransactions", fields: [fkIncomeId], references: [incomeId])
+    fkExpenseId                 Int?
+    expense                     Expense?         @relation("ExpenseTransactions", fields: [fkExpenseId], references: [expenseId])
+    isPlaidTransaction          Boolean          @default(false)
+    isDeleted                   Boolean          @default(false)
+    createdAt                   DateTime         @default(now())
+    updatedAt                   DateTime         @default(now())
+}

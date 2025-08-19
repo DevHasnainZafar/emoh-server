@@ -1,0 +1,21 @@
+model FinancialItems {
+    itemId                      Int      @id @default(autoincrement())
+    fkUserId                    Int
+    user                        User     @relation(fields: [fkUserId], references: [userId])
+    itemName                    String
+    itemType                    ItemType @default(Asset)
+    givenAmount                 Float
+    givenCurrencyCode           String   @default("CAD")
+    amountInDefaultCurrency     Float?
+    defaultCurrency             String   @default("CAD")
+    exchangeRateForBaseCurrency Float?
+    amountInCADCurrency         Float?
+    exchangeRateForCAD          Float?
+    isDeleted                   Boolean  @default(false)
+    createdAt                   DateTime @default(now()) @map("created_at")
+    updatedAt                   DateTime @updatedAt @map("updated_at")
+
+    @@index([itemId])
+    @@index([fkUserId])
+    @@map("FinancialItems")
+}

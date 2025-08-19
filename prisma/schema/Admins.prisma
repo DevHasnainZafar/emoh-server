@@ -1,0 +1,24 @@
+model Admin {
+  adminId           Int           @id @default(autoincrement())
+  name              String?
+  email             String        @unique
+  password          String?
+  profilePic        String?
+  accessToken       String?
+
+  role              AdminRole     @default(ADMIN)
+  accessLevel       AccessLevel   @default(PARTIAL)
+  invitationStatus  InviteStatus  @default(PENDING)
+
+  isProfileCreated  Boolean       @default(false)
+  isDeleted         Boolean       @default(false)
+  isBlocked         Boolean       @default(false)
+
+  resetOtp          Int?
+  resetOtpExpiry    DateTime?
+
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt      @map("updated_at")
+
+  @@map("Admins")
+}

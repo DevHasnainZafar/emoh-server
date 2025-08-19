@@ -1,0 +1,29 @@
+model Expense {
+    expenseId                    Int             @id @default(autoincrement())
+    fkUserId                     Int
+    user                         User            @relation(fields: [fkUserId], references: [userId])
+    fkBankId                     Int
+    bank                         Bank            @relation(fields: [fkBankId], references: [bankId])
+    paidFrom                     String
+    paidFromImage                String
+    paidTo                       String
+    expenseAmountInGivenCurrency Float
+    expenseAmountCurrency        String
+    expenseAmountInBaseCurrency  Float
+    baseCurrency                 String
+    expenseAmountInCADCurrency   Float
+    CADCurrency                  String          @default("CAD")
+    paidToCategory               String
+    taxStatus                    InclusionStatus
+    taxPercentage                Int?
+    fxMarkupStatus               InclusionStatus
+    fxMarkupValue                Int?
+    expenseDate                  DateTime?
+    recurringType                RecurringType
+    nextDueDate                  DateTime?
+    transactions                 Transactions[]  @relation("ExpenseTransactions")
+    isPlaidExpense               Boolean         @default(false)
+    isDeleted                    Boolean         @default(false)
+    createdDate                  DateTime        @default(now())
+    updatedAt                    DateTime        @default(now())
+}

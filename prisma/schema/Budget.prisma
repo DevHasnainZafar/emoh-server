@@ -1,0 +1,18 @@
+model Budget {
+    budgetId                    Int                     @id @default(autoincrement())
+    fkUserId                    Int
+    user                        User                    @relation(fields: [fkUserId], references: [userId])
+    categoryName                String
+    budgetContributionCycle     BudgetContributionCycle
+    budgetAmountInGivenCurrency Float
+    budgetAmountCurrency        String
+    budgetAmountInBaseCurrency  Float
+    baseCurrency                String
+    budgetAmountInCADCurrency   Float
+    CADCurrency                 String                  @default("CAD")
+    nextDueDate                 DateTime?
+    isDeleted                   Boolean                 @default(false)
+    budgetLogs                  BudgetLog[]             @relation("BudgetLogs")
+    createdAt                   DateTime                @default(now())
+    updatedAt                   DateTime                @default(now())
+}

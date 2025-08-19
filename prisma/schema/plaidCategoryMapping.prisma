@@ -1,0 +1,7 @@
+model PlaidCategoryMapping {
+    id             Int      @id @default(autoincrement())
+    plaidCategory  String
+    customCategory String
+    createdAt      DateTime @default(now()) @map("created_at")
+    updatedAt      DateTime @updatedAt @map("updated_at")
+}
